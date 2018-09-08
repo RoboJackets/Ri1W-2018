@@ -1,4 +1,4 @@
-package org.firstinspires.ftc.robotcontroller.external.samples;
+package org.firstinspires.ftc.teamcode;
 
 import com.qualcomm.robotcore.hardware.DcMotor;
 import com.qualcomm.robotcore.hardware.Servo;
@@ -8,8 +8,6 @@ import org.firstinspires.ftc.robotcore.external.ClassFactory;
 import org.firstinspires.ftc.robotcore.external.matrices.OpenGLMatrix;
 import org.firstinspires.ftc.robotcore.external.navigation.RelicRecoveryVuMark;
 import org.firstinspires.ftc.robotcore.external.navigation.VuforiaLocalizer;
-import org.firstinspires.ftc.robotcore.external.navigation.VuforiaTrackable;
-import org.firstinspires.ftc.robotcore.external.navigation.VuforiaTrackables;
 import org.lasarobotics.vision.android.Cameras;
 import org.lasarobotics.vision.opmode.LinearVisionOpMode;
 import org.lasarobotics.vision.opmode.extensions.CameraControlExtension;
@@ -22,40 +20,16 @@ import org.opencv.core.Size;
 import org.opencv.imgproc.Imgproc;
 
 /**
- * Created by zipper on 2/4/17.
- *
- * Abstract class that contains the bulk of our code for the velocity vortex challenge.
- * All of the helper methods for our auto opmodes and teleop opmodes are neatly kept here.
+ * Created by jviszlai on 9/8/18.
  */
+public abstract class RoboJacketsVisionOpMode extends LinearVisionOpMode{
 
-public abstract class RoboJacketsLinearVisionOpMode extends LinearVisionOpMode {
-    private double NOT_DEPLOYED_POWER = 0;
-    private double DEPLOYED_POWER = .5;
-    private double CLAMP_LEFT_OPEN = .1;
-    private double CLAMP_LEFT_CLOSED = .9;
-    private double CLAMP_RIGHT_OPEN = .1;
-    private double CLAMP_RIGHT_CLOSED = .9;
-    private double GLYPH_IN = .1;
-    private double GLYPH_PUSH = .9;
-    private double RELIC_CLAW_UP = .1;
-    private double RELIC_CLAW_DOWN = .5;
-    private double RELIC_CLAW_OPEN = .9;
-    private double RELIC_CLAW_CLOSED = .4;
 
     private DcMotor leftBack;
     private DcMotor leftFront;
     private DcMotor rightBack;
     private DcMotor rightFront;
-    private DcMotor intakeLeft;
-    private DcMotor intakeRight;
-    private DcMotor glyphLift;
-    private DcMotor relicExtend;
-    private Servo deploy;
-    private Servo clampLeft;
-    private Servo clampRight;
-    private Servo pushGlyph;
-    private Servo relicClawPulley;
-    private Servo relicClaw;
+
     public ElapsedTime runtime = new ElapsedTime();
 
     private int frameCount = 0;
@@ -63,8 +37,7 @@ public abstract class RoboJacketsLinearVisionOpMode extends LinearVisionOpMode {
     private OpenGLMatrix lastLocation = null;
 
     private VuforiaLocalizer vuforia;
-    private VuforiaTrackable relicTemplate;
-    VuforiaTrackables relicTrackables;
+
 
     public boolean blueLeft;
     public RelicRecoveryVuMark glyphCol = RelicRecoveryVuMark.UNKNOWN;
@@ -76,41 +49,17 @@ public abstract class RoboJacketsLinearVisionOpMode extends LinearVisionOpMode {
      * Servos
      */
     public void initialize(boolean isAuto) throws InterruptedException {
-                leftFront = hardwareMap.dcMotor.get("leftFront");
-                leftBack = hardwareMap.dcMotor.get("leftBack");
-                leftFront.setDirection(DcMotor.Direction.REVERSE);
-                rightFront = hardwareMap.dcMotor.get("rightFront");
-                rightBack = hardwareMap.dcMotor.get("rightBack");
-                rightBack.setDirection(DcMotor.Direction.REVERSE);
-
-        //        intakeLeft = hardwareMap.dcMotor.get("intakeLeft");
-        //        intakeRight = hardwareMap.dcMotor.get("intakeRight");
-        //        glyphLift = hardwareMap.dcMotor.get("glyphLift");
-        //        relicExtend = hardwareMap.dcMotor.get("relicExtend");
-        //
-        //        pushGlyph = hardwareMap.servo.get("pushGlyph");
-        //        clampLeft = hardwareMap.servo.get("clampLeft");
-        //        clampRight = hardwareMap.servo.get("clampRight");
-        deploy = hardwareMap.servo.get("deploy");
-        relicClawPulley = hardwareMap.servo.get("relicClawPulley");
-        relicClaw = hardwareMap.servo.get("relicClaw");
-
-        //        pushGlyph.setPosition(GLYPH_IN);
-        //        clampLeft.setPosition(CLAMP_LEFT_OPEN);
-        //        clampRight.setPosition(CLAMP_RIGHT_OPEN);
-        deploy.setPosition(NOT_DEPLOYED_POWER);
-        relicClawPulley.setPosition(RELIC_CLAW_UP);
-        relicClaw.setPosition(RELIC_CLAW_CLOSED);
-
-
-        //        rightBack.setDirection(DcMotor.Direction.REVERSE);
-        //        rightFront.setDirection(DcMotor.Direction.REVERSE);
-        //        intakeRight.setDirection(DcMotor.Direction.REVERSE);
+        leftFront = hardwareMap.dcMotor.get("leftFront");
+        leftBack = hardwareMap.dcMotor.get("leftBack");
+        leftFront.setDirection(DcMotor.Direction.REVERSE);
+        rightFront = hardwareMap.dcMotor.get("rightFront");
+        rightBack = hardwareMap.dcMotor.get("rightBack");
+        rightBack.setDirection(DcMotor.Direction.REVERSE);
         if(isAuto) {
 
             initOpenCV();
             sleep(4000);
-            blueLeft = isBlueLeft();
+            //blueLeft = isBlueLeft();
             if (openCVCamera != null) {
                 openCVCamera.disableView();
                 openCVCamera.disconnectCamera();
@@ -122,7 +71,7 @@ public abstract class RoboJacketsLinearVisionOpMode extends LinearVisionOpMode {
             for (Extensions extension : Extensions.values())
                 if (isEnabled(extension))
                     disableExtension(extension); //disable and stop
-            initVuforia();
+            //initVuforia();
 
         }
         telemetry.addData("Initialization ", "complete");
@@ -130,52 +79,6 @@ public abstract class RoboJacketsLinearVisionOpMode extends LinearVisionOpMode {
         telemetry.update();
     }
 
-    /**
-     * Deploys mechanisms that go outside of height
-     */
-    public void deployDown() {
-        deploy.setPosition(DEPLOYED_POWER);
-    }
-    public void deployUp() {
-        deploy.setPosition(NOT_DEPLOYED_POWER);
-    }
-    public void glyphPush() {
-        pushGlyph.setPosition(GLYPH_PUSH);
-    }
-    public void glyphIn() {
-        pushGlyph.setPosition(GLYPH_IN);
-    }
-    public void pulleyDown() {
-        relicClawPulley.setPosition(RELIC_CLAW_DOWN);
-    }
-    public void pulleyUp() {
-        relicClawPulley.setPosition(RELIC_CLAW_UP);
-    }
-    public void relicClawClose() {
-        relicClaw.setPosition(RELIC_CLAW_CLOSED);
-    }
-    public void relicClawOpen() {
-        relicClaw.setPosition(RELIC_CLAW_OPEN);
-    }
-    public void relicExtend(double power) {
-        relicExtend.setPower(power);
-    }
-    public void intake(double power) {
-        intakeLeft.setPower(power);
-        intakeRight.setPower(power);
-    }
-    public void glyphLift(double power) {
-        glyphLift.setPower(power);
-    }
-
-    public void glyphClampClose() {
-        clampLeft.setPosition(CLAMP_LEFT_CLOSED);
-        clampRight.setPosition(CLAMP_RIGHT_CLOSED);
-    }
-    public void glyphClampOpen() {
-        clampLeft.setPosition(CLAMP_LEFT_OPEN);
-        clampRight.setPosition(CLAMP_RIGHT_OPEN);
-    }
     public void setPower(double powerLeft, double powerRight) {
         telemetry();
         leftFront.setPower(powerLeft);
@@ -219,43 +122,6 @@ public abstract class RoboJacketsLinearVisionOpMode extends LinearVisionOpMode {
         parameters.cameraDirection = VuforiaLocalizer.CameraDirection.BACK;
         this.vuforia = ClassFactory.createVuforiaLocalizer(parameters);
 
-        relicTrackables = this.vuforia.loadTrackablesFromAsset("RelicVuMark");
-        relicTemplate = relicTrackables.get(0);
-    }
-    public RelicRecoveryVuMark doVuforia() throws InterruptedException {
-
-        relicTrackables.activate();
-
-        RelicRecoveryVuMark mark = RelicRecoveryVuMark.UNKNOWN;
-        int leftCount = 0;
-        int centerCount = 0;
-        int rightCount = 0;
-        sleep(250);
-        for (int i = 0; i < 20; i++) {
-            RelicRecoveryVuMark vuMark = RelicRecoveryVuMark.from(relicTemplate);
-            if (vuMark != RelicRecoveryVuMark.UNKNOWN) {
-                if (vuMark == RelicRecoveryVuMark.LEFT) {
-                    leftCount++;
-                } else if (vuMark == RelicRecoveryVuMark.CENTER) {
-                    centerCount++;
-                } else if (vuMark == RelicRecoveryVuMark.RIGHT) {
-                    rightCount++;
-                }
-            }
-            sleep(50);
-        }
-
-        if (leftCount > centerCount && leftCount > rightCount) {
-            mark = RelicRecoveryVuMark.LEFT;
-        } else if (centerCount > leftCount && centerCount > rightCount) {
-            mark = RelicRecoveryVuMark.CENTER;
-        } else if (rightCount > centerCount && rightCount > leftCount) {
-            mark = RelicRecoveryVuMark.RIGHT;
-        }
-
-        telemetry.addData("Key: ", mark.toString());
-        relicTrackables.deactivate();
-        return mark;
     }
 
 
@@ -388,8 +254,10 @@ public abstract class RoboJacketsLinearVisionOpMode extends LinearVisionOpMode {
         cameraControl.setAutoExposureCompensation();
     }
     /**
-     * Processes jewel orientations
+     * Processes unobtainium location
      */
+
+    /* Previous Similar Code
     public boolean isBlueLeft() throws InterruptedException {
 
 
@@ -431,11 +299,11 @@ public abstract class RoboJacketsLinearVisionOpMode extends LinearVisionOpMode {
         int blueLeftCount = 0;
         int blueRightCount = 0;
         if (hasNewFrame()) {
-                //Get the frame
-                Mat rgba = getFrameRgba();
-                return blueLeftHelper(rgba);
+            //Get the frame
+            Mat rgba = getFrameRgba();
+            return blueLeftHelper(rgba);
 
-                //Discard the current frame to allow for the next one to render
+            //Discard the current frame to allow for the next one to render
 
         }
         else {
@@ -475,5 +343,6 @@ public abstract class RoboJacketsLinearVisionOpMode extends LinearVisionOpMode {
 
         return leftCount > rightCount;
     }
+    */
 
 }
