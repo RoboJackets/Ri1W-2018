@@ -30,6 +30,9 @@ public abstract class RoboJacketsVisionOpMode extends LinearVisionOpMode{
     private DcMotor rightBack;
     private DcMotor rightFront;
 
+    private Scalar lowerBoundYellow = new Scalar(15, 0, 150);
+    private Scalar upperBoundYellow = new Scalar(40, 255, 255);
+
     public ElapsedTime runtime = new ElapsedTime();
 
     private int frameCount = 0;
@@ -39,7 +42,7 @@ public abstract class RoboJacketsVisionOpMode extends LinearVisionOpMode{
     private VuforiaLocalizer vuforia;
 
 
-    public boolean blueLeft;
+    public int goldPosition;
     public RelicRecoveryVuMark glyphCol = RelicRecoveryVuMark.UNKNOWN;
 
     /**
@@ -49,17 +52,19 @@ public abstract class RoboJacketsVisionOpMode extends LinearVisionOpMode{
      * Servos
      */
     public void initialize(boolean isAuto) throws InterruptedException {
-        leftFront = hardwareMap.dcMotor.get("leftFront");
+        /*leftFront = hardwareMap.dcMotor.get("leftFront");
         leftBack = hardwareMap.dcMotor.get("leftBack");
         leftFront.setDirection(DcMotor.Direction.REVERSE);
         rightFront = hardwareMap.dcMotor.get("rightFront");
         rightBack = hardwareMap.dcMotor.get("rightBack");
-        rightBack.setDirection(DcMotor.Direction.REVERSE);
+        rightBack.setDirection(DcMotor.Direction.REVERSE);*/
         if(isAuto) {
 
             initOpenCV();
             sleep(4000);
-            //blueLeft = isBlueLeft();
+            if (hasNewFrame()) {
+                goldPosition = getGoldPosition();
+            }
             if (openCVCamera != null) {
                 openCVCamera.disableView();
                 openCVCamera.disconnectCamera();
@@ -75,7 +80,7 @@ public abstract class RoboJacketsVisionOpMode extends LinearVisionOpMode{
 
         }
         telemetry.addData("Initialization ", "complete");
-        telemetry.addData("blueLeft",blueLeft);
+        telemetry.addData("Gold Position", goldPosition);
         telemetry.update();
     }
 
@@ -253,27 +258,30 @@ public abstract class RoboJacketsVisionOpMode extends LinearVisionOpMode{
         cameraControl.setColorTemperature(CameraControlExtension.ColorTemperature.AUTO);
         cameraControl.setAutoExposureCompensation();
     }
+
     /**
-     * Processes unobtainium location
+     * Finds most consistent position over 20 frames.
+     * @return Index: 0, 1, or 2. Referring to gold in left, center, or right, respectively.
+     * @throws InterruptedException
      */
 
-    /* Previous Similar Code
-    public boolean isBlueLeft() throws InterruptedException {
-
-
-        boolean blueLeft = false;
-        int blueLeftCount = 0;
-        int blueRightCount = 0;
+    public int getGoldPosition() throws InterruptedException {
+        int yellowLeftCount = 0;
+        int yellowCenterCount = 0;
+        int yellowRightCount = 0;
 
         for (int i = 0; i < 20; i++) {
 
             if (hasNewFrame()) {
                 //Get the frame
                 Mat rgba = getFrameRgba();
-                if (blueLeftHelper(rgba)) {
-                    blueLeftCount++;
+                int position = getGoldPositionSingleFrame(rgba);
+                if (position == 0) {
+                    yellowLeftCount++;
+                } else if (position == 1) {
+                    yellowCenterCount++;
                 } else {
-                    blueRightCount++;
+                    yellowRightCount++;
                 }
 
                 //Discard the current frame to allow for the next one to render
@@ -289,60 +297,73 @@ public abstract class RoboJacketsVisionOpMode extends LinearVisionOpMode{
             waitOneFullHardwareCycle();
         }
 
-        if (blueLeftCount > blueRightCount) {
-            blueLeft = true;
+        int max = Math.max(yellowLeftCount, Math.max(yellowCenterCount, yellowRightCount));
+        if (max == yellowLeftCount) {
+            return 0;
         }
-        return blueLeft;
+        if (max == yellowCenterCount) {
+            return 1;
+        }
+        return 2;
     }
-    public boolean blueLeftTest() throws InterruptedException {
-        boolean blueLeft = false;
-        int blueLeftCount = 0;
-        int blueRightCount = 0;
-        if (hasNewFrame()) {
-            //Get the frame
-            Mat rgba = getFrameRgba();
-            return blueLeftHelper(rgba);
 
-            //Discard the current frame to allow for the next one to render
 
-        }
-        else {
-            return blueLeftTest();
-        }
-    }
-    public boolean blueLeftHelper(Mat frame) {
+    /**
+     *
+     * @param frame, Input current camera frame
+     * @return Index: 0, 1, or 2. Referring to gold in left, center, or right, respectively.
+     */
+
+    public int getGoldPositionSingleFrame(Mat frame) {
         Mat hsvFrame = new Mat();
         Imgproc.cvtColor(frame, frame, Imgproc.COLOR_RGBA2BGR);
         Imgproc.cvtColor(frame, hsvFrame, Imgproc.COLOR_BGR2HSV);
+        Mat left = new Mat(hsvFrame, new Range(0, hsvFrame.rows()), new Range(0, hsvFrame.cols() / 3));
+        Mat center = new Mat(hsvFrame, new Range(0, hsvFrame.rows()), new Range(hsvFrame.cols() / 3, 2 * hsvFrame.cols() / 3));
+        Mat right = new Mat(hsvFrame, new Range(0, hsvFrame.rows()), new Range(2 * hsvFrame.cols() / 3, hsvFrame.cols()));
 
-        Mat leftFrame = new Mat(hsvFrame, new Range(hsvFrame.rows()/2, hsvFrame.rows()), new Range(0, hsvFrame.cols()));
-        Mat leftBlue = new Mat();
-        Core.inRange(leftFrame, new Scalar(90, 150, 150), new Scalar(105, 255, 255), leftBlue);
-
+        Mat yellowFilteredL = new Mat();
+        Core.inRange(left, lowerBoundYellow, upperBoundYellow, yellowFilteredL);
         int leftCount = 0;
-        for (int i = 0; i < leftBlue.rows(); i++) {
-            for (int j = 0; j < leftBlue.cols(); j++) {
-                if (leftBlue.get(i, j)[0] != 0) {
+        for (int i = 0; i < yellowFilteredL.rows(); i++) {
+            for (int j = 0; j < yellowFilteredL.cols(); j++) {
+                if (yellowFilteredL.get(i, j)[0] != 0) {
                     leftCount++;
                 }
             }
         }
 
-        Mat rightFrame = new Mat(hsvFrame, new Range(0, hsvFrame.rows()/2), new Range(0, hsvFrame.cols()));
-        Mat rightBlue = new Mat();
-        Core.inRange(rightFrame, new Scalar(90, 150, 150), new Scalar(105, 255, 255), rightBlue);
+        Mat yellowFilteredC = new Mat();
+        Core.inRange(center, lowerBoundYellow, upperBoundYellow, yellowFilteredC);
+        int centerCount = 0;
+        for (int i = 0; i < yellowFilteredC.rows(); i++) {
+            for (int j = 0; j < yellowFilteredC.cols(); j++) {
+                if (yellowFilteredC.get(i, j)[0] != 0) {
+                    centerCount++;
+                }
+            }
+        }
 
+        Mat yellowFilteredR = new Mat();
+        Core.inRange(right, lowerBoundYellow, upperBoundYellow, yellowFilteredR);
         int rightCount = 0;
-        for (int i = 0; i < rightBlue.rows(); i++) {
-            for (int j = 0; j < rightBlue.cols(); j++) {
-                if (rightBlue.get(i, j)[0] != 0) {
+        for (int i = 0; i < yellowFilteredR.rows(); i++) {
+            for (int j = 0; j < yellowFilteredR.cols(); j++) {
+                if (yellowFilteredR.get(i, j)[0] != 0) {
                     rightCount++;
                 }
             }
         }
 
-        return leftCount > rightCount;
+        int max = Math.max(leftCount, Math.max(centerCount, rightCount));
+        if (max == leftCount) {
+            return 0;
+        }
+        if (max == centerCount) {
+            return 1;
+        }
+        return 2;
     }
-    */
+
 
 }
