@@ -1,12 +1,12 @@
 package org.firstinspires.ftc.teamcode;
 
 import com.qualcomm.robotcore.hardware.DcMotor;
+import com.qualcomm.robotcore.hardware.DcMotorSimple;
 import com.qualcomm.robotcore.hardware.Servo;
 import com.qualcomm.robotcore.util.ElapsedTime;
 
 import org.firstinspires.ftc.robotcore.external.ClassFactory;
 import org.firstinspires.ftc.robotcore.external.matrices.OpenGLMatrix;
-import org.firstinspires.ftc.robotcore.external.navigation.RelicRecoveryVuMark;
 import org.firstinspires.ftc.robotcore.external.navigation.VuforiaLocalizer;
 import org.lasarobotics.vision.android.Cameras;
 import org.lasarobotics.vision.opmode.LinearVisionOpMode;
@@ -30,8 +30,8 @@ public abstract class RoboJacketsVisionOpMode extends LinearVisionOpMode{
     private DcMotor rightBack;
     private DcMotor rightFront;
 
-    private Scalar lowerBoundYellow = new Scalar(15, 0, 150);
-    private Scalar upperBoundYellow = new Scalar(40, 255, 255);
+    private Scalar lowerBoundYellow = new Scalar(18, 200, 200);
+    private Scalar upperBoundYellow = new Scalar(25, 255, 255);
 
     public ElapsedTime runtime = new ElapsedTime();
 
@@ -43,7 +43,6 @@ public abstract class RoboJacketsVisionOpMode extends LinearVisionOpMode{
 
 
     public int goldPosition;
-    public RelicRecoveryVuMark glyphCol = RelicRecoveryVuMark.UNKNOWN;
 
     /**
      * Initializes all necessary components including
@@ -52,12 +51,12 @@ public abstract class RoboJacketsVisionOpMode extends LinearVisionOpMode{
      * Servos
      */
     public void initialize(boolean isAuto) throws InterruptedException {
-        /*leftFront = hardwareMap.dcMotor.get("leftFront");
+        leftFront = hardwareMap.dcMotor.get("leftFront");
         leftBack = hardwareMap.dcMotor.get("leftBack");
-        leftFront.setDirection(DcMotor.Direction.REVERSE);
         rightFront = hardwareMap.dcMotor.get("rightFront");
+        rightFront.setDirection(DcMotor.Direction.REVERSE);
         rightBack = hardwareMap.dcMotor.get("rightBack");
-        rightBack.setDirection(DcMotor.Direction.REVERSE);*/
+        rightBack.setDirection(DcMotor.Direction.REVERSE);
         if(isAuto) {
 
             initOpenCV();
@@ -237,7 +236,6 @@ public abstract class RoboJacketsVisionOpMode extends LinearVisionOpMode{
         telemetry.addData("rightFront to position", (rightFront.getTargetPosition() - rightFront.getCurrentPosition()));
         telemetry.addData("leftBack to position", (leftBack.getTargetPosition() - leftBack.getCurrentPosition()));
         telemetry.addData("rightBack to position", (rightBack.getTargetPosition() - rightBack.getCurrentPosition()));
-        telemetry.addData("mark",glyphCol);
         telemetry.update();
     }
     public void initOpenCV() throws InterruptedException {
