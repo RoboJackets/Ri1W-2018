@@ -7,7 +7,16 @@ import com.qualcomm.robotcore.util.ElapsedTime;
 
 import org.firstinspires.ftc.robotcore.external.ClassFactory;
 import org.firstinspires.ftc.robotcore.external.matrices.OpenGLMatrix;
+import org.firstinspires.ftc.robotcore.external.matrices.VectorF;
+import org.firstinspires.ftc.robotcore.external.navigation.AngleUnit;
+import org.firstinspires.ftc.robotcore.external.navigation.AxesOrder;
+import org.firstinspires.ftc.robotcore.external.navigation.AxesReference;
+import org.firstinspires.ftc.robotcore.external.navigation.Orientation;
+import org.firstinspires.ftc.robotcore.external.navigation.RelicRecoveryVuMark;
 import org.firstinspires.ftc.robotcore.external.navigation.VuforiaLocalizer;
+import org.firstinspires.ftc.robotcore.external.navigation.VuforiaTrackable;
+import org.firstinspires.ftc.robotcore.external.navigation.VuforiaTrackableDefaultListener;
+import org.firstinspires.ftc.robotcore.external.navigation.VuforiaTrackables;
 import org.lasarobotics.vision.android.Cameras;
 import org.lasarobotics.vision.opmode.LinearVisionOpMode;
 import org.lasarobotics.vision.opmode.extensions.CameraControlExtension;
@@ -30,6 +39,13 @@ public abstract class RoboJacketsVisionOpMode extends LinearVisionOpMode{
     private DcMotor rightBack;
     private DcMotor rightFront;
 
+    private DcMotor intake;
+
+    private DcMotor elevator1;
+    private DcMotor elevator2;
+
+    private Servo servo;
+
     private Scalar lowerBoundYellow = new Scalar(18, 200, 200);
     private Scalar upperBoundYellow = new Scalar(25, 255, 255);
 
@@ -41,6 +57,7 @@ public abstract class RoboJacketsVisionOpMode extends LinearVisionOpMode{
 
     private VuforiaLocalizer vuforia;
 
+    private double[] position = new double[]{0, 0, 0, 0, 0, 0};;
 
     public int goldPosition;
 
@@ -51,12 +68,20 @@ public abstract class RoboJacketsVisionOpMode extends LinearVisionOpMode{
      * Servos
      */
     public void initialize(boolean isAuto) throws InterruptedException {
-        leftFront = hardwareMap.dcMotor.get("leftFront");
-        leftBack = hardwareMap.dcMotor.get("leftBack");
-        rightFront = hardwareMap.dcMotor.get("rightFront");
+        leftFront = hardwareMap.dcMotor.get("3");
+        leftBack = hardwareMap.dcMotor.get("2");
+        rightFront = hardwareMap.dcMotor.get("0");
         rightFront.setDirection(DcMotor.Direction.REVERSE);
-        rightBack = hardwareMap.dcMotor.get("rightBack");
+        rightBack = hardwareMap.dcMotor.get("1");
         rightBack.setDirection(DcMotor.Direction.REVERSE);
+
+        intake = hardwareMap.dcMotor.get("intake");
+
+        elevator1 = hardwareMap.dcMotor.get("elevator1");
+        elevator2 = hardwareMap.dcMotor.get("elevator2");
+
+        servo = hardwareMap.servo.get("servo");
+
         if(isAuto) {
 
             initOpenCV();
@@ -75,14 +100,59 @@ public abstract class RoboJacketsVisionOpMode extends LinearVisionOpMode{
             for (Extensions extension : Extensions.values())
                 if (isEnabled(extension))
                     disableExtension(extension); //disable and stop
-            //initVuforia();
-
+            initVuforia();
+            position = findPosition();
         }
         telemetry.addData("Initialization ", "complete");
         telemetry.addData("Gold Position", goldPosition);
+
+        telemetry.addData("X", position[0]);
+        telemetry.addData("Y", position[1]);
+        telemetry.addData("Z", position[2]);
+        telemetry.addData("rX", position[3]);
+        telemetry.addData("rY", position[4]);
+        telemetry.addData("rZ", position[5]);
+
+
         telemetry.update();
     }
 
+
+    public void setServo(double position) {
+        servo.setPosition(position);
+    }
+
+    /**
+     * Set elevator power
+     * @param power for elevator
+     */
+    public void elevatorPower(double power) {
+        elevator1.setPower(power);
+        elevator2.setPower(power);
+    }
+
+
+    /**
+     * Run intake motor in reverse for outake
+     */
+
+    public void outtake(double power) {
+        intake.setPower(-power);
+    }
+
+    /**
+     * Run intake motor
+     */
+    public void intake(double power) {
+        intake.setPower(power);
+    }
+
+
+    /**
+     * Set drive motor power
+     * @param powerLeft left motors power
+     * @param powerRight right motors power
+     */
     public void setPower(double powerLeft, double powerRight) {
         telemetry();
         leftFront.setPower(powerLeft);
@@ -105,24 +175,91 @@ public abstract class RoboJacketsVisionOpMode extends LinearVisionOpMode{
     }
 
     /**
-     * Turn left indefinitely
-     *
-     * @param power Turn at this power
-     * @throws InterruptedException
+     * Find position to image target
+     * @return position of robot with respect to image target
      */
-    public void left(double power) throws InterruptedException {
-        telemetry();
-        leftFront.setPower(-power);
-        leftBack.setPower(-power);
-        rightFront.setPower(power);
-        rightBack.setPower(power);
+    public double[] findPosition() {
+        VuforiaTrackables relicTrackables = this.vuforia.loadTrackablesFromAsset("RelicVuMark");
+        VuforiaTrackable relicTemplate = relicTrackables.get(0);
+        relicTemplate.setName("relicVuMarkTemplate"); // can help in debugging; otherwise not necessary
+
+        relicTrackables.activate();
+
+        while (opModeIsActive()) {
+
+            /**
+             * See if any of the instances of {@link relicTemplate} are currently visible.
+             * {@link RelicRecoveryVuMark} is an enum which can have the following values:
+             * UNKNOWN, LEFT, CENTER, and RIGHT. When a VuMark is visible, something other than
+             * UNKNOWN will be returned by {@link RelicRecoveryVuMark#from(VuforiaTrackable)}.
+             */
+            RelicRecoveryVuMark vuMark = RelicRecoveryVuMark.from(relicTemplate);
+            if (vuMark != RelicRecoveryVuMark.UNKNOWN) {
+
+                /* Found an instance of the template. In the actual game, you will probably
+                 * loop until this condition occurs, then move on to act accordingly depending
+                 * on which VuMark was visible. */
+                telemetry.addData("VuMark", "%s visible", vuMark);
+
+                /* For fun, we also exhibit the navigational pose. In the Relic Recovery game,
+                 * it is perhaps unlikely that you will actually need to act on this pose information, but
+                 * we illustrate it nevertheless, for completeness. */
+                OpenGLMatrix pose = ((VuforiaTrackableDefaultListener)relicTemplate.getListener()).getPose();
+                telemetry.addData("Pose", format(pose));
+
+                /* We further illustrate how to decompose the pose into useful rotational and
+                 * translational components */
+                if (pose != null) {
+                    VectorF trans = pose.getTranslation();
+                    Orientation rot = Orientation.getOrientation(pose, AxesReference.EXTRINSIC, AxesOrder.XYZ, AngleUnit.DEGREES);
+
+                    // Extract the X, Y, and Z components of the offset of the target relative to the robot
+                    double tX = trans.get(0);
+                    double tY = trans.get(1);
+                    double tZ = trans.get(2);
+
+                    // Extract the rotational components of the target relative to the robot
+                    double rX = rot.firstAngle;
+                    double rY = rot.secondAngle;
+                    double rZ = rot.thirdAngle;
+                    double[] coords = new double[6];
+                    coords[0] = tX;
+                    coords[1] = tY;
+                    coords[2] = tZ;
+                    coords[3] = rX;
+                    coords[4] = rY;
+                    coords[5] = rZ;
+                    return coords;
+                }
+
+            }
+            else {
+                telemetry.addData("VuMark", "not visible");
+            }
+
+            telemetry.update();
+        }
+        return new double[]{0, 0, 0, 0, 0, 0};
     }
+
+    /**
+     * Format transformation matrix for pose estimate
+     * @param transformationMatrix matrix to format
+     * @return formatted matrix
+     */
+    String format(OpenGLMatrix transformationMatrix) {
+        return (transformationMatrix != null) ? transformationMatrix.formatAsTransform() : "null";
+    }
+
+
+    /**
+     * Initialize Vuforia
+     */
     public void initVuforia() {
         int cameraMonitorViewId = hardwareMap.appContext.getResources().getIdentifier("cameraMonitorViewId", "id", hardwareMap.appContext.getPackageName());
         VuforiaLocalizer.Parameters parameters = new VuforiaLocalizer.Parameters(cameraMonitorViewId);
 
-        parameters.vuforiaLicenseKey = "ASjtsmX/////AAAAGRIKfx5rxUpHh/PGnhhtxFhARxDTGhbXGgYJW2M7DJjZagpGX95lZcr+fiuH/OGcw0aoprFZE0yjWDGZROVrgCnWeURYO9lw6IKCGWZVRJA0AmiVfyFWOUVXLGz5LyXFvhs8iNbAF38DFn/gbuD81RGl126CNWRK+fGiDk/dJTOZspFhZqIsV6heVpjhgb+ZUI771znQlFKR1f9t08viSaiLKXiDsD+zwpiPBh4fHPyM7w8H4wwdPBq0MHDjnfmmxUDEbTMaVeLMoLZWmav70qg9eUzdJ71yH4MnBOsmZ12F0KPQ1txlip0iOVH/0U3mVGqLRrXlhhQeVtefTF2i2kB8YiJqqnGEwsADWm4vSmQ3";
-
+        parameters.vuforiaLicenseKey = "Ae6AwNj/////AAABmb237TMSwkT3r7lIX9cPOSN6CShC2Dhjbn5HEXZuR/9fEimW0fSd9J520pzgu9IeDP88wfoxAgd1V1x+q+xK0yMyhfGUe5Y5nihGryy768Guz16x9EFBMKVII275+vUVCo4ZTmeFOBG2f2tL1wlAZQ+yltUzu1F+ju/DyVJqZVGAU6XgrOsAYLCUbtLtg8zIG2KGX4H5nbMmU0bv11WY61thCj1k+27Do4D8hOvr5MixSLA99FdJBwV+FgPkLZUN6INZwzMk68GmZ5fhjBgw0ZwjRdmYyjyLOb+QpGcCq82O9Rvc39HIkjmFDlxzf8Q/TzDiG1/wNoiUQ2BHwyrsyubT1UPynBKPT1WkXilSt3rP";
         parameters.cameraDirection = VuforiaLocalizer.CameraDirection.BACK;
         this.vuforia = ClassFactory.createVuforiaLocalizer(parameters);
 

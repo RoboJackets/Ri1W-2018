@@ -12,5 +12,18 @@ public class RoboJacketsAuto extends RoboJacketsVisionOpMode {
     @Override
     public void runOpMode() throws InterruptedException {
         initialize(true);
+        /*
+        encoderDrive(-.3, -.3,   2400, 2400, 10);
+        encoderDrive(-.3, .3,   2700, 2700, 10);
+
+        encoderDrive(-.3, -.3,   2400, 2400, 10);
+        encoderDrive(-.3, .3,   2700, 2700, 10);
+
+        encoderDrive(-.3, -.3,   2400, 2400, 10);
+        encoderDrive(-.3, .3,   2700, 2700, 10);
+
+        encoderDrive(-.3, -.3,   2400, 2400, 10);
+        encoderDrive(-.3, .3,   2700, 2700, 10);
+        */
     }
 }
